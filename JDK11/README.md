@@ -1,6 +1,6 @@
 # JDK11 新特性
 
-## 嵌套访问控制（JEP181）
+## [嵌套访问控制（JEP181）](https://openjdk.org/jeps/181)
 
 ### 背景
 jvm允许一个源文件中放多个class。这对于用户是透明的，用户认为它们在一个class中，所以希望它们共享同一套访问控制体系。
@@ -30,7 +30,7 @@ public class com.misitetong.jdk11.JEP181$Nest2 {
 2. 内部类增加`NESTHOST`字段，让jvm天然的知道嵌套关系，允许相同顶级类的类之间访问私有属性、方法
 3. 修复了使用反射进行私有方法调用报错的问题，使其与源码级访问拥有相同权限
 
-## 动态类文件常量（JEP309）
+## [动态类文件常量（JEP309）](https://openjdk.org/jeps/309)
 ### 背景
 在 JDK 8 之前，Java 的常量池项是固定几种类型：`CONSTANT_Integer`, `CONSTANT_String`, `CONSTANT_Class`, `CONSTANT_MethodHandle` 等等。
 每种常量类型都要在类加载时一次性解析并存入内存。这些常量都是静态的、编译时确定的。但现实中，很多“逻辑上是常量”的值，无法在编译时确定，例如：
@@ -125,3 +125,47 @@ Program end at 1760108323022
 ```
 可以看到，静态常量`DynamicConstantDesc<String> LAZY_VALUE`只在第一次获取的时候才会进行计算并存储到常量池。
 因此上述两个缺点被完美解决。
+
+## [改进Aarch64函数（JEP315）](https://openjdk.org/jeps/315)
+### 摘要
+改进现有的字符串和数组内置函数，并在 AArch64 处理器上为 java.lang.Math 的 sin、cos 和 log 函数实现新的内置函数。
+
+## [无操作垃圾回收器Epsilon（试验性）（JEP318）](https://openjdk.org/jeps/318)
+### 背景
+一个处理内存分配但不实现任何实际内存回收机制的GC。一旦可用的Java堆用尽，JVM就会关闭。
+如果有System.gc()的调用，实际上什么也不会发生（这种场景下和-XX:+DisableExplicitGC效果一样），因为没有内存回收，这个实现可能会警告用户尝试强制GC是徒劳。
+使用方法如下
+```shell
+cd path/to/JDKFeature/JDK11/src/main/java
+javac com/misitetong/jdk11/JEP318.java
+java -cp . -XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC -Xmx512m com.misitetong.jdk11.JEP318
+```
+执行上述命令可以看到如下结果（MacOS M1Max 32G）：
+```text
+已分配：100 MB，耗时：0.01 s，速率：11518.19 MB/s
+已分配：200 MB，耗时：0.03 s，速率：6081.27 MB/s
+已分配：300 MB，耗时：0.04 s，速率：7219.99 MB/s
+已分配：400 MB，耗时：0.05 s，速率：8058.17 MB/s
+已分配：500 MB，耗时：0.06 s，速率：8667.19 MB/s
+Terminating due to java.lang.OutOfMemoryError: Java heap space
+```
+作为比较，这里贴上`Parallel GC`（默认 GC，JDK 8~11）的结果，与EpsilonGC相比，可以看到无GC的理论内存分配值会更高：
+```text
+# java -cp . -XX:+UseParallelGC -Xmx512m com.misitetong.jdk11.JEP318
+已分配：100 MB，耗时：0.01 s，速率：13812.87 MB/s
+已分配：200 MB，耗时：0.04 s，速率：4798.68 MB/s
+已分配：300 MB，耗时：0.07 s，速率：4160.89 MB/s
+已分配：400 MB，耗时：0.09 s，速率：4537.52 MB/s
+
+=== 运行结束 ===
+总共分配了 468.00 MB 内存
+运行时长：0.10 秒
+触发了 OutOfMemoryError。
+```
+### 主要用途
+1. 性能测试：在做性能测试时，有时候我们并不想让 GC 干扰结果。例如测量纯计算性能或 JIT 编译性能。Epsilon 可以确保没有 GC 暂停，不影响测试纯度。（它可以帮助过滤掉GC引起的性能假象）；
+2. 内存压力测试：如果想测试应用的内存分配速率（allocation rate）或内存峰值，可以用 Epsilon 作为工具，因为它能准确反映堆用尽的时间。（例如，知道测试用例应该分配不超过1 GB的内存，我们可以使用-Xmx1g配置-XX:+UseEpsilonGC，如果违反了该约束，则会heap dump并崩溃）；
+3. 非常短的JOB任务（对于这种任务，接受GC清理堆那都是浪费空间）；
+4. VM接口测试：出于VM开发目的，拥有一个简单的GC有助于了解VM-GC接口拥有功能分配器的绝对最低要求。对于无操作GC，接口不应该实现任何东西，良好的界面意味着Epsilon的BarrierSet只会使用默认实现中的无操作屏障实现；
+5. Last-drop 延迟&吞吐改进：Epsilon GC 消除了所有 GC 成本，获得了Last-drop的极限性能，用于建立 JVM 性能的理论上限基准；
+
