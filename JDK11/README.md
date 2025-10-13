@@ -169,3 +169,28 @@ Terminating due to java.lang.OutOfMemoryError: Java heap space
 4. VM接口测试：出于VM开发目的，拥有一个简单的GC有助于了解VM-GC接口拥有功能分配器的绝对最低要求。对于无操作GC，接口不应该实现任何东西，良好的界面意味着Epsilon的BarrierSet只会使用默认实现中的无操作屏障实现；
 5. Last-drop 延迟&吞吐改进：Epsilon GC 消除了所有 GC 成本，获得了Last-drop的极限性能，用于建立 JVM 性能的理论上限基准；
 
+## [删除Java EE和CORBA模块（JEP320）](https://openjdk.org/jeps/320)
+### 移除的模块
+1. java.xml.ws (JAX-WS, plus the related technologies SAAJ and Web Services Metadata)
+2. java.xml.bind (JAXB，XML到Java对象的绑定)
+3. java.activation (JAF)
+4. java.xml.ws.annotation (服务注解)
+5. java.corba (CORBA)
+6. java.transaction (JTA)
+7. java.se.ee (Aggregator module for the six modules above)
+8. jdk.xml.ws (Tools for JAX-WS)
+9. jdk.xml.bind (Tools for JAXB)
+### 移除的工具
+1. jdk.xml.ws 模块中移除了以下JAX-WS 工具： 
+   - wsgen 
+   - wsimport
+2. jdk.xml.bind 模块移除了以下JAXB 工具： 
+   - schemagen 
+   - xjc 
+3. java.corba 模块移除以下CORBA 工具： 
+   - idlj 
+   - orbd 
+   - servertool 
+   - tnamesrv
+### 其他
+更多内容参考：[JDK 11 Release Notes, Important Changes, and Information](https://www.oracle.com/java/technologies/javase/11-relnote-issues.html#JDK-8190378)
