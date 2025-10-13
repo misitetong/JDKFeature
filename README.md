@@ -9,3 +9,4 @@ Code repository for jdk feature explanation
  - JEP 315: Improve Aarch64 Intrinsics
  - JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)
  - JEP 320: Remove the Java EE and CORBA Modules
+ - JEP 321: HTTP Client API

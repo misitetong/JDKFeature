@@ -194,3 +194,82 @@ Terminating due to java.lang.OutOfMemoryError: Java heap space
    - tnamesrv
 ### 其他
 更多内容参考：[JDK 11 Release Notes, Important Changes, and Information](https://www.oracle.com/java/technologies/javase/11-relnote-issues.html#JDK-8190378)
+
+## [HTTP Client API（JEP321）](https://openjdk.org/jeps/321)
+### 背景
+`HTTP/2`客户端在JDK9引入并在JDK10更新，现在JDK11将其标准化支持同步与异步模式，成为 Java 网络通信的核心API。
+1. [HTTP/2客户端（孵化器）（JEP110）](https://openjdk.org/jeps/110)
+2. [HTTP客户端API的HTTP/2（JEP321）](https://openjdk.org/jeps/321)
+3. [HTTP客户端API的HTTP/3（JEP517）](https://openjdk.org/jeps/517)
+
+| Compare                    | JEP 110 (JDK 9/10)                                   | JEP 321 (JDK 11)                                              |
+|----------------------------|------------------------------------------------------|---------------------------------------------------------------|
+| package name               | `jdk.incubator.http`                                 | `java.net.http`                                               |
+| `HttpResponse.BodyHandler` | `HttpResponse.BodyHandler.asString()`                | `HttpResponse.BodyHandlers.ofString()`                        |
+| use method                 | compile with `--add-modules jdk.incubator.httpclient` | direction                                                     |
+| HttpResponse Implementation method | `BodyProcessor<T>` | `BodySubscriber<T> extends Flow.Subscriber<List<ByteBuffer>>` |
+
+### 深入理解`BodySubscriber`
+
+```java
+/**
+ * copy from java.net.http.HttpResponse.BodySubscriber
+ * @param <T>
+ */
+public interface BodySubscriber<T> extends Flow.Subscriber<List<ByteBuffer>> {
+     /**
+      * Returns a {@code CompletionStage} which when completed will return
+      * the response body object. This method can be called at any time
+      * relative to the other {@link Flow.Subscriber} methods and is invoked
+      * using the client's {@link HttpClient#executor() executor}.
+      *
+      * @return a CompletionStage for the response body
+      */
+     public CompletionStage<T> getBody();
+ }
+```
+通过实现Reactive Streams 标准大大提升了`HttpClient`的异步处理能力
+1. `BodySubscriber`的引入使得`HttpClient`能够逐步（异步）处理 HTTP 响应体数据。每次接收到一部分数据时，onNext() 会被调用，并可以立即对这些数据进行处理（例如，拼接字符串、处理流、保存文件等），而无需等到所有数据都完全接收完毕。
+2. 这种非阻塞的处理方式允许`HttpClient`在等待响应体的过程中继续执行其他任务（例如发送其他请求、处理计算等），大大提升了系统的并发性能。
+3. `BodySubscriber`使得`HttpClient API`具有很高的灵活性，可以支持自定义的响应体处理方式。开发者可以根据自己的需求，提供不同的 BodySubscriber 实现，以满足各种场景的需要（如将响应体直接存储到文件、将其转化为某种数据格式等）。
+
+自定义`BodySubscriber`代码示例如下，使用方式详见[JEP321.java](src/main/java/com/misitetong/jdk11/JEP321.java)
+```java
+public class AsyncStringBodySubscriber<T> implements HttpResponse.BodySubscriber<T> {
+
+     private final CompletableFuture<T> result = new CompletableFuture<>();
+     private final StringBuilder builder = new StringBuilder();
+
+     @Override
+     public void onSubscribe(Flow.Subscription subscription) {
+         subscription.request(Long.MAX_VALUE);
+     }
+
+     @Override
+     public void onNext(List<ByteBuffer> items) {
+         for (ByteBuffer buffer : items) {
+             byte[] bytes = new byte[buffer.remaining()];
+             buffer.get(bytes);
+             builder.append(new String(bytes));
+         }
+     }
+
+     @Override
+     public void onError(Throwable throwable) {
+         result.completeExceptionally(throwable);
+     }
+
+     @Override
+     public void onComplete() {
+         result.complete(JSON.parseObject(builder.toString(), new TypeReference<T>() {
+         }));
+     }
+
+     @Override
+     public CompletionStage<T> getBody() {
+         return result;
+     }
+ }
+```
+
+
