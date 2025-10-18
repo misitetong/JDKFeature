@@ -89,16 +89,16 @@ public class JEP321 {
                 .build();
         System.out.println("request start at: " + LocalDateTime.now());
         // simple use
-//        CompletableFuture<HttpResponse<String>> future =
-//                client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        CompletableFuture<HttpResponse<String>> future =
+                client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
 
         // use custom Subscriber
-        HttpResponse.BodySubscriber<String> subscriber = new AsyncStringBodySubscriber<>();
-        CompletableFuture<HttpResponse<String>> future =
-                client.sendAsync(request, HttpResponse.BodyHandlers.fromSubscriber(
-                        subscriber,
-                        stringBodySubscriber -> stringBodySubscriber.getBody().toString()
-                ));
+//        HttpResponse.BodySubscriber<String> subscriber = new AsyncStringBodySubscriber<>();
+//        CompletableFuture<HttpResponse<String>> future =
+//                client.sendAsync(request, HttpResponse.BodyHandlers.fromSubscriber(
+//                        subscriber,
+//                        stringBodySubscriber -> stringBodySubscriber.getBody().toString()
+//                ));
 
         System.out.println("request has sent, waiting response at: " + LocalDateTime.now());
 

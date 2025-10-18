@@ -272,4 +272,65 @@ public class AsyncStringBodySubscriber<T> implements HttpResponse.BodySubscriber
  }
 ```
 
+## [Lambda参数的局部变量语法（JEP323）](https://openjdk.org/jeps/323)
+
+### 背景
+局部变量类型推断指的是java不在需要给变量定义具体的数据类型而是使用var来定义，编译器能根据右边表达式自动推断类型。
+在`JDK10`中可以用`var`推断局部变量的类型，例如：
+```java
+var message = "Hello, world!";
+var list = new ArrayList<String>();
+```
+但是在`lambda`中`var`并不可用。而`JEP323`使得`var`在`lambda`中合法。
+```java
+(x, y) -> x + y        // ✅ 可行
+(var x, var y) -> x + y // ❌ Java 10 不支持；✅Java 11 支持
+```
+
+### JEP323优点
+1. 可以使得lambda参数带上注解
+2. 可以使得lambda参数带上修饰符例如：`final`
+
+如下面[JEP323.java](src/main/java/com/misitetong/jdk11/JEP323.java)代码所示加上了`final`之后，`a = a + 1`会在编译期报错。
+```java
+// JDK11/src/main/java/com/misitetong/jdk11/JEP323.java
+BiFunction<String, String, String> concat = (final var a, final var b) -> {
+   a = a + 1;
+   return a + b;
+};
+```
+
+### 注意点
+由于`JEP323.java`不改变`lambda`在运行时的类型推断与元数据生成方式，因此对于`var`的注解和修饰符只在编译期有效。
+因此运行`JEP323.java`可以得到如下结果。可以看到正常的方法可以在运行时获取到注解，而即使`lambda`的参数上标注了注解，也无法在运行使其被获取。
+```text
+arg0 -> [@jakarta.validation.constraints.NotNull(message="{jakarta.validation.constraints.NotNull.message}", groups={}, payload={})]
+arg1 -> [@jakarta.validation.constraints.NotNull(message="{jakarta.validation.constraints.NotNull.message}", groups={}, payload={})]
+arg0 -> []
+arg1 -> []
+```
+因此如果想要在运行时期对`lambda`参数使用注解完成一些自定义操作如使用`@NotNull`进行非空校验是无法生效的。
+尽管如此，我们在编译时期仍然可以对`lambda`参数上的注解进行一些操作。示例如下：
+解开`JEP323.java:Line:47`的注释，重新运行，我们可以发现，`org.checkerframework.checker`会在编译时就将`Null`值报出来，
+这表明`lambda`参数上的`@NotNull`注解在编译时起起效果了。为了更加直观的观察编译时期的`lambda`参数注解的变化，现将`JEP323.java`的编译文件展示如下：
+```shell
+javap -p -v JEP323.class | grep "RuntimeVisibleParameterAnnotations" -A 5
+```
+```text
+RuntimeVisibleParameterAnnotations:
+   parameter 0:
+     0: #55()
+       jakarta.validation.constraints.NotNull
+   parameter 1:
+     0: #55()
+```
+可见`JEP323.java`中编译的注解只有`staticConcat`方法参数的注解而没有`concat`方法参数的注解，继续执行下面命令观察：
+```shell
+javap -p -v JEP323.class | grep "lambda$static$0" -A 5
+```
+可见`lambda`表达式并不是直接编译成一个匿名类，而是通过`invokedynamic + LambdaMetafactory`动态生成方法引用，编译后会生成一个合成方法（synthetic method）。
+```text
+private static synthetic lambda$static$0(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+```
+
 

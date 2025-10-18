@@ -10,3 +10,4 @@ Code repository for jdk feature explanation
  - JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)
  - JEP 320: Remove the Java EE and CORBA Modules
  - JEP 321: HTTP Client API
+ - JEP 323: Local-Variable Syntax for Lambda Parameters
