@@ -11,3 +11,4 @@ Code repository for jdk feature explanation
  - JEP 320: Remove the Java EE and CORBA Modules
  - JEP 321: HTTP Client API
  - JEP 323: Local-Variable Syntax for Lambda Parameters
+ - JEP 324: Key Agreement with Curve25519 and Curve448
