@@ -426,3 +426,82 @@ Java SE 10实现Unicode 8.0。Unicode 9.0增加了7500个字符和六个新脚�
  - UTS #39，Unicode安全机制
  - UTS #46，Unicode IDNA兼容性处理
  - UTS #51，Unicode表情符号
+
+## [Flight Recorder（JEP328）](https://openjdk.org/jeps/328)
+
+### 背景
+JFR （Java Flight Recorder）是一种分析工具，之前是Oracle JDK 中的商业插件，但在 Java 11 中，其代码被包含到公开代码库中，用于从正在运行的 Java 应用程序中收集诊断和分析数据。它的性能开销可以忽略不计，通常低于 1%。 因此它可以用于生产应用程序。
+
+Java 语言中的飞行记录器类似飞机上的黑盒子，是一种低开销的事件信息收集框架，主要用于对 应用程序和 JVM 进行故障检查、分析。飞行记录器记录的 主要数据源于应用程序、JVM 和 OS，这些事件信息 保存在单独的事件记录文件中，故障发生后，能够从事件记录文件中 提取出有用信息 对故障进行分析。
+
+### JFR使用
+```shell
+# 开启飞行记录器，开启60s，保存文件到app.jfr，在程序退出时自动保存文件
+java -XX:StartFlightRecording=duration=60s,filename=app.jfr,dumponexit=true -jar app.jar
+
+# 动态开启飞行记录器，配置文件profile
+jcmd <pid> JFR.start name=MyRecording settings=profile duration=60s filename=app.jfr
+# 手动保存当前的jfr
+jcmd <pid> JFR.dump filename=app.jfr
+# 查询当前录制状态
+jcmd <pid> JFR.check
+jcmd <pid> JFR.stop
+```
+官方JMC：[下载链接](https://jdk.java.net/jmc)
+
+使用下面命令运行`JEP328.java`，或者在`idea`的`Run Configuration`中配置`vm options`参数
+```shell
+cd path/to/JDKFeature/JDK11/src/main/java
+javac com/misitetong/jdk11/JEP328.java
+java -cp . -XX:StartFlightRecording=duration=60s,filename=app.jfr,dumponexit=true com.misitetong.jdk11.JEP328
+```
+ - 使用`jmc`打开`jfr`文件可以得到如下结果：
+![JEP328.png](assets/JEP328.png)
+
+ - 代码读取`jfr`文件
+```java
+import java.nio.file.*;
+import jdk.jfr.consumer.*;
+
+Path p = Paths.get("recording.jfr");
+for (RecordedEvent e : RecordingFile.readAllEvents(p)) {
+   System.out.println(e.getStartTime() + " : " + e.getValue("message"));
+}
+```
+
+### JFR 与常见性能分析工具对比表
+数据由GTP-5生成
+
+| 对比维度                  | **Java Flight Recorder (JFR)**   | **VisualVM**      | **async-profiler**     | **YourKit / JProfiler** | **Perf (Linux)**          | **BPF / eBPF 工具链**     |
+| --------------------- | -------------------------------- | ----------------- | ---------------------- | ----------------------- | ------------------------- | ---------------------- |
+| **来源 / 许可证**          | OpenJDK 官方（JEP 328 / 349），开源     | OpenJDK 附带（GPLv2） | 开源（GPLv2）              | 商业软件（付费）                | Linux 原生                  | 开源（内核工具）               |
+| **引入版本**              | JDK 11 (正式集成)，JDK 14 起带 `jfr` 命令 | 早期工具              | 独立原生工具                 | 第三方商业版                  | 内核级工具                     | 内核级工具                  |
+| **采样方式**              | 事件驱动 + 周期采样                      | 抽样 + attach 监控    | 原生信号采样（perf_event）     | Instrumentation + 采样    | 低层硬件计数器                   | eBPF 程序插桩              |
+| **性能开销**              | 🟢 极低（<1%，可长期开启）                 | 🟡 中等（5%~15%）     | 🟢 低（~2%）              | 🔴 高（10%~40%）           | 🟢 低（~1%）                 | 🟢 低（~1%）              |
+| **生产环境可用性**           | ✅ 非侵入式，可长期启用                     | ⚠️ 可短期调试，不推荐长期    | ✅ 适合线上分析               | ❌ 不推荐生产使用               | ✅ 专业性能工程                  | ✅ 高级生产追踪               |
+| **是否需要 Agent Attach** | ❌（内置于 JVM）                       | ✅ 需要 attach JVM   | ✅ 需要 attach            | ✅ 需要 attach agent       | ❌                         | ✅ 通过 eBPF 插桩           |
+| **支持的事件类型**           | JVM + 应用层事件（GC、锁、I/O、CPU、异常、线程）  | JVM 指标、堆、线程       | CPU、堆栈采样               | 方法级调用链、内存分析             | 硬件事件（cycles、cache misses） | 自定义系统调用、网络、I/O         |
+| **自定义事件支持**           | ✅ 支持（`jdk.jfr.Event`）            | ❌                 | ❌                      | ✅（通过探针）                 | ❌                         | ✅（写 eBPF 脚本）           |
+| **堆分析能力**             | 🟡 可采集对象分配                       | 🟢 实时堆转储          | 🟡 简要采样                | 🟢 全堆快照                 | ❌                         | ❌                      |
+| **方法级性能分析**           | ✅ 支持采样热点方法                       | 🟢                | 🟢                     | 🟢                      | 🟢                        | 🟢                     |
+| **线程与锁分析**            | ✅ 内置锁竞争事件                        | 🟢 可视化线程状态        | 🟢 采样锁持有               | 🟢                      | 🟢（系统级）                   | 🟢（系统级）                |
+| **可视化工具**             | 🟢 Java Mission Control (JMC)    | 🟢 自带 GUI         | 🔵 火焰图 (Flame Graph)   | 🟢 图形界面                 | 🔵 火焰图工具                  | 🔵 bpftrace/FlameGraph |
+| **命令行工具**             | `jfr`、`jcmd`                     | 无（GUI为主）          | `profiler.sh`          | 无                       | `perf`                    | `bpftrace`、`bcc`       |
+| **输出格式**              | `.jfr` 二进制文件                     | `.nps`、`.hprof`   | 火焰图（SVG/HTML）          | 专有格式                    | perf.data                 | 文本 / 火焰图               |
+| **分析深度**              | JVM 层 + 应用层 + OS 层统计             | JVM 层             | 原生层                    | JVM 层                   | 硬件层                       | 内核层                    |
+| **使用复杂度**             | 🟢 简单（JVM 内置命令）                  | 🟢 简单             | 🟡 需配置                 | 🟢 图形化操作                | 🔴 较复杂                    | 🔴 需要编写 eBPF 脚本        |
+| **可持续运行监控**           | ✅ 支持长期采集                         | ❌                 | ✅                      | ❌                       | ✅                         | ✅                      |
+| **典型场景**              | 性能分析、线上问题回溯、GC/线程诊断              | 本地调试、小规模测试        | 火焰图分析、低级 CPU Profiling | 离线性能调试                  | 系统级性能瓶颈分析                 | 高级生产监控                 |
+| **JDK 依赖性**           | 高（JVM 内置）                        | 高                 | 无                      | 无                       | 无                         | 无                      |
+| **优点总结**              | ✅ JVM 原生、低开销、事件丰富、生产可用           | ✅ 图形界面直观、易用       | ✅ 原生火焰图高精度             | ✅ 功能全面、界面强大             | ✅ 系统级性能精确                 | ✅ 可自定义内核/系统追踪          |
+| **缺点总结**              | ❌ 分析需 JMC / jfr 工具，非即时           | ❌ 开销较高            | ❌ 无法记录 JVM 内部事件        | ❌ 侵入性强，非免费              | ❌ JVM 语义缺失                | ❌ 学习曲线陡峭               |
+
+| 使用场景                     | 推荐工具                  | 说明               |
+| ------------------------ | --------------------- | ---------------- |
+| 🧩 **JVM 性能分析（GC、线程、锁）** | 🟢 **JFR**            | 内置、低开销、可长期启用     |
+| 🧮 **CPU 火焰图分析**         | 🟢 async-profiler     | 原生信号采样更精准        |
+| 🧰 **开发调试阶段性能测试**        | 🟢 VisualVM / YourKit | 图形化界面直观          |
+| 🖥 **系统级性能瓶颈分析**         | 🟢 perf / eBPF        | 适合内核、I/O、网络分析    |
+| 🧭 **生产环境持续监控 + 事后分析**   | 🟢 JFR + JMC          | 最安全、低扰动、JVM 原生支持 |
+
+

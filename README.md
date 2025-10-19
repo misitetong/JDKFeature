@@ -13,3 +13,4 @@ Code repository for jdk feature explanation
  - JEP 323: Local-Variable Syntax for Lambda Parameters
  - JEP 324: Key Agreement with Curve25519 and Curve448
  - JEP 327: Unicode 10
+ - JEP 328: Flight Recorder
