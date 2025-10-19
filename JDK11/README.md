@@ -408,3 +408,21 @@ Throughput: 1589.7 ops/sec
 | 推荐用途    | 现代协议        | 高保密场景       | 向后兼容              |
 | Java 支持 | ✅ (JDK 11+) | ✅ (JDK 11+) | ✅ (JDK 1.7+)      |
 
+## [Unicode 10（JEP327）](https://openjdk.org/jeps/327)
+
+### 目标
+支持最新版本的Unicode，主要在以下类中：
+
+`java.lang`包中的`String`和`Character`，
+`java.awt.font`包中的`NumericShaper`，以及
+`java.text`包中的`Bidi`、`BreakIterator`和`Normalizer`。
+
+Java SE 10实现Unicode 8.0。Unicode 9.0增加了7500个字符和六个新脚本，Unicode 10.0.0增加了8518个字符和四个新脚本。此升级将包括Unicode 9.0更改，因此将总共增加16,018个字符和十个新脚本。
+
+### 非目标
+本JEP不会实现四个相关的Unicode规范：
+
+ - UTS #10，Unicode整理算法
+ - UTS #39，Unicode安全机制
+ - UTS #46，Unicode IDNA兼容性处理
+ - UTS #51，Unicode表情符号
