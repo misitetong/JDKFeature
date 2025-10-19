@@ -7,7 +7,7 @@ import jdk.jfr.Name;
 /**
  * @author zyy
  * @Date 2025/10/19 15:33
- * @Description NONE
+ * @Description <a href="https://openjdk.org/jeps/328">com.misitetong.jdk11.JEP328</a>
  */
 public class JEP328 {
 
