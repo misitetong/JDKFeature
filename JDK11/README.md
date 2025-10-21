@@ -711,3 +711,57 @@ HeapWord* allocation_end; // 新增：采样点位置
 
 这种堆分析可以通过`JMC`查看`JFR`文件中的事件来分析：
 ![JEP331.png](assets/JEP331.png)
+
+## [TLS传输协议1.3（JEP332）](https://openjdk.org/jeps/332)
+[TLS1.3官方地址](https://tools.ietf.org/html/rfc8446)
+
+### `TLSv1.3`和`TLSv1.2`的对比
+通过代码启用指定版本的`TLS`，`JDK11`默认启动`TLSv1.3`
+```shell
+-Djdk.tls.client.protocols="TLSv1.2"
+-Djdk.tls.server.protocols="TLSv1.2"
+```
+| 方面            | TLS 1.2                           | TLS 1.3                           | 说明                              |
+| ------------- | --------------------------------- | --------------------------------- | ------------------------------- |
+| **握手往返次数**    | 2 RTT（Round Trip）                 | 1 RTT（支持 0-RTT 会话恢复）              | 握手速度更快，降低延迟                     |
+| **密钥交换算法**    | RSA、DH、ECDH、DHE、ECDHE             | 仅 (EC)DHE                         | 移除了不安全的 RSA key exchange，保证前向保密 |
+| **加密算法**      | AES-CBC、3DES、RC4、ChaCha20 等       | AES-GCM、AES-CCM、ChaCha20-Poly1305 | 移除不安全算法，只保留现代安全算法               |
+| **哈希函数**      | MD5、SHA-1、SHA-224、SHA-256、SHA-384 | SHA-256、SHA-384                   | 移除弱哈希函数                         |
+| **握手消息加密**    | 大部分明文                             | 全部加密                              | 握手信息被加密，提高安全性                   |
+| **会话恢复**      | Session ID / Session Ticket       | PSK（Pre-Shared Key），支持 0-RTT      | 可实现更快的连接恢复，但 0-RTT 数据可能被重放      |
+| **协议复杂度**     | 较高，许多选项可选                         | 简化，固定安全选项                         | 更易实现、更安全                        |
+| **前向保密**      | 可选，需使用 DHE/ECDHE                  | 默认 (EC)DHE                        | 所有连接默认支持前向保密                    |
+| **Java 支持版本** | Java 7+                           | Java 11+（JEP 332）                 | TLS 1.3 在 Java 11 中被原生支持        |
+
+关于往返次数说明：
+
+ - TLS 1.2 握手（4次往返，RTT）
+   1. Client Hello：客户端发送支持的加密套件、随机数（Client Random）。
+   2. Server Hello：服务器选择加密套件、返回随机数（Server Random）、证书。
+   3. 密钥交换： 客户端生成预主密钥（Pre-Master Secret），用服务器公钥加密后发送。 
+   4. 服务器用私钥解密获取预主密钥。
+
+   Finished：双方计算会话密钥，验证握手完整性。
+
+   特点：
+   1. 需要2-RTT（如果使用RSA密钥交换）。
+   2. 支持静态RSA/DH密钥交换（不支持前向保密）。
+
+- TLS 1.3 握手（1-RTT）
+  1. Client Hello：客户端发送随机数（Client Random）、支持的加密套件（仅限TLS 1.3支持的套件）、密钥共享参数（如ECDHE公钥）。
+  2. Server Hello：服务器选择加密套件、返回随机数（Server Random）、自己的密钥共享参数（如ECDHE公钥）、证书。
+  
+  Finished：双方计算会话密钥，直接开始加密通信（1-RTT）。
+
+- TLS 1.3 握手（0-RTT快速恢复连接）
+
+  客户端缓存上次会话的密钥，直接发送加密数据（但可能面临重放攻击风险）。
+
+  特点： 
+  1. 强制前向保密（PFS），仅支持ECDHE密钥交换（RSA密钥交换被移除）。 
+  2. 握手更快（1-RTT或0-RTT）。 
+  3. 简化加密套件（仅保留AES-GCM、ChaCha20-Poly1305等现代算法）。
+
+### 代码示例
+
+详见[JEP332.java](src/main/java/com/misitetong/jdk11/JEP332.java)，查看`SSL`连接指定`TLSv1.3`

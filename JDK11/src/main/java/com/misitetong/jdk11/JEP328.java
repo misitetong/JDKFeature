@@ -24,7 +24,8 @@ public class JEP328 {
         event.begin();
         Thread.sleep(100);
         event.end();
-        event.commit(); // 提交事件
+        // 提交事件
+        event.commit();
         System.out.println(event.message);
     }
 }
