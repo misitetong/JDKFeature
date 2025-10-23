@@ -761,7 +761,35 @@ HeapWord* allocation_end; // 新增：采样点位置
   1. 强制前向保密（PFS），仅支持ECDHE密钥交换（RSA密钥交换被移除）。 
   2. 握手更快（1-RTT或0-RTT）。 
   3. 简化加密套件（仅保留AES-GCM、ChaCha20-Poly1305等现代算法）。
-
 ### 代码示例
-
 详见[JEP332.java](src/main/java/com/misitetong/jdk11/JEP332.java)，查看`SSL`连接指定`TLSv1.3`
+
+## [可扩展的低延迟垃圾收集器（实验性）（JEP333）](https://openjdk.org/jeps/333)
+
+### 目标
+1. ZGC的主要设计目标之一是实现低停顿时间，停顿时间（STW）不会超过10ms，这个停顿时间还可以根据实际的项目需求进行配置；
+2. ZGC被设计为能够处理非常大的堆内存，支持8MB～4TB级别的堆内存，未来会支持16TB；
+3. 与使用G1相比，应用程序吞吐量降低不超过15%
+4. 利用彩色指针和负载屏障，为未来的GC功能和优化奠定基础
+5. 最初支持的平台：Linux/x64
+
+### 启用ZGC
+```shell
+java -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -jar app.jar
+```
+
+
+
+## [弃用Nashorn JavaScript引擎（JEP335）](https://openjdk.org/jeps/335)
+```java
+// 包含jdk.nashorn.api.scripting和jdk.nashorn.api.tree
+jdk.scripting.nashorn
+// 包含jjs tool
+jdk.scripting.nashorn.shell
+```
+## [弃用Pack200工具和API（JEP336）](https://openjdk.org/jeps/336)
+```java
+java.util.jar.Pack200
+java.util.jar.Pack200.Packer
+java.util.jar.Pack200.Unpacker
+```

@@ -18,3 +18,6 @@ Code repository for jdk feature explanation
  - JEP 330: Launch Single-File Source-Code Programs
  - JEP 331: Low-Overhead Heap Profiling
  - JEP 332: Transport Layer Security (TLS) 1.3
+ - JEP 333: ZGC: A Scalable Low-Latency Garbage Collector (Experimental)
+ - JEP 335: Deprecate the Nashorn JavaScript Engine for Removal
+ - JEP 336: Deprecate the Pack200 Tools and API
