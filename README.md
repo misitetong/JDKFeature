@@ -4,6 +4,7 @@ Code repository for jdk feature explanation
 ⌛️⌛️⌛️Updating
 
 ## [JDK11](JDK11/README.md)
+[Official Link For JDK11](https://openjdk.org/projects/jdk/11/)
  - JEP 181: Nest-Based Access Control
  - JEP 309: Dynamic Class-File Constants
  - JEP 315: Improve Aarch64 Intrinsics
@@ -21,3 +22,8 @@ Code repository for jdk feature explanation
  - JEP 333: ZGC: A Scalable Low-Latency Garbage Collector (Experimental)
  - JEP 335: Deprecate the Nashorn JavaScript Engine for Removal
  - JEP 336: Deprecate the Pack200 Tools and API
+
+## [JDK17](JDK17/README.md)
+
+[Official Link For JDK17](https://openjdk.org/projects/jdk/17/)
+ - JEP 306: Restore Always-Strict Floating-Point Semantics
