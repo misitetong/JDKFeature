@@ -17,13 +17,13 @@ public class JEP406 {
         return switch (o) {
             // 1. 模式用作case标签
             case Integer i -> String.format("int %d", i);
-            case Long l    -> String.format("long %d", l);
-            case Double d  -> String.format("double %f", d);
+            case Long l -> String.format("long %d", l);
+            case Double d -> String.format("double %f", d);
             // 2. 支持 null 作为 case 标签
             case null, String s  -> "String s or null:" + s;
             // 3 && 4. 支持守卫模式和括号
             case (Boolean b && b.booleanValue() == true)  -> String.format("boolean %s", b);
-            default        -> o.toString();
+            default -> o.toString();
         };
     }
 

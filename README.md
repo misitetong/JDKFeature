@@ -33,3 +33,5 @@ Code repository for jdk feature explanation
  - JEP 398: Deprecate the Applet API for Removal
  - JEP 403: Strongly Encapsulate JDK Internals
  - JEP 406: Pattern Matching for switch (Preview)
+ - JEP 407: Remove RMI Activation
+ - JEP 409: Sealed Classes

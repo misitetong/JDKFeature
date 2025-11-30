@@ -128,3 +128,76 @@ Java 的 switch 只能用于精准匹配：
 4. 支持括号用于解决语法歧义
 5. 增强的完整性检查，尤其结合 密封类（Sealed Classes, JEP 409）
 6. 模式变量的作用域：模式的变量只在匹配成功后的作用域内有效
+
+## [移除RMI Activation（JEP407）](https://openjdk.org/jeps/407)
+
+### 背景
+RMI：是 Java 早期提供的分布式对象通信机制，允许一个 JVM 调用另一个 JVM 中的对象方法。
+RMI Activation 自 Java 8 起就被标记为 deprecated（JEP 398 在 JDK 15 中将其标记为 "forRemoval = true"）
+1. Unicast（单播）：远程对象常驻内存，客户端直接连接（主流用法）✅ 保留
+2. Activation（激活）：远程对象按需启动（lazy activation），即客户端首次调用时才在服务端启动该对象 ❌ 被移除
+
+移除的原因：
+1. 现代分布式系统普遍采用： HTTP/REST（如 Spring Boot + Feign） 、gRPC 、WebSocket 、消息队列（Kafka、RabbitMQ） 、RMI Activation 的“按需激活”模型在云原生、容器化时代不再适用
+2. Activation 依赖 rmid 守护进程，需额外端口和权限，存在安全隐患（如反序列化攻击） ，代码复杂，维护成本远高于其价值
+### 移除项
+```java
+java.rmi.activation
+```
+
+## [密封类Sealed Classes（JEP409）](https://openjdk.org/jeps/409)
+
+### 背景
+发布情况：
+1. 第一次预览：[JEP 360: Sealed Classes (Preview)](https://openjdk.org/jeps/360)
+2. 第二次预览：[JEP 397: Sealed Classes (Second Preview)](https://openjdk.org/jeps/397)
+3. 正式发布：JEP 409: Sealed Classes
+
+为什么需要密封类？
+1. 传统 final 或包私有（package-private）的不足：
+final：完全禁止继承，太严格。
+包私有：只能限制包外继承，包内仍可任意扩展
+2. 密封类的优势：
+精确控制继承：只允许特定子类。
+类型系统更安全：编译器知道所有可能子类型。
+支持代数数据类型（ADT）：类似 Scala 的 sealed trait 或 Kotlin 的 sealed class。
+为模式匹配提供基础：是 JEP 406/420/427 完整性检查的前提。
+### 定义与语法
+
+示例代码详见[JEP409](./src/main/java/com/misitetong/jdk17/JEP409.java)
+> 一个 密封类 是通过 sealed 修饰符声明的类或接口，它显式指定哪些类可以继承它（或实现它），这些子类称为 permitted subclasses（许可子类）
+
+⚠️注意：所有直接子类必须显式指定其“密封性”，且只能是以下三种之一：
+1. `final`: 不能再被继承（叶子类）✅ 最常用
+2. `sealed`：自身也是密封类，需指定自己的 permits
+3. `non-sealed`：可以被任意类继承（打破密封链）⚠️ 谨慎使用
+```java
+public sealed class Shape
+    permits Circle, Rectangle, Square { }
+```
+如果子类与密封类在同一个源文件中，可以省略 permits：
+```java
+// Shape.java
+sealed class Shape { }
+
+final class Circle extends Shape { }
+final class Rectangle extends Shape { }
+non-sealed class Square extends Shape { } // 可继承
+```
+### 作用域与可见性要求
+1. 所有 许可子类 必须与密封类在同一模块（module）中
+2. 如果不在命名模块中（即 classpath 模式），则必须在同一包中
+3. 子类必须直接继承密封类（不能隔代）
+### 与 JEP 406（Pattern Matching for switch）协同
+密封类的最大价值在于与 模式匹配的 switch 配合使用：
+```java
+int eval(Expr e) {
+    return switch (e) {
+        case Constant c -> c.value();
+        case Add a      -> eval(a.left()) + eval(a.right());
+        case Mul m      -> eval(m.left()) * eval(m.right());
+    }; // ✅ 无需 default！编译器知道已覆盖所有子类
+}
+```
+🔒 完整性检查（Completeness Check）：
+编译器能静态验证 switch 是否覆盖了所有许可子类，避免运行时遗漏。
