@@ -27,3 +27,9 @@ Code repository for jdk feature explanation
 
 [Official Link For JDK17](https://openjdk.org/projects/jdk/17/)
  - JEP 306: Restore Always-Strict Floating-Point Semantics
+ - JEP 356: Enhanced Pseudo-Random Number Generators
+ - JEP 382: New macOS Rendering Pipeline
+ - JEP 391: macOS/AArch64 Port
+ - JEP 398: Deprecate the Applet API for Removal
+ - JEP 403: Strongly Encapsulate JDK Internals
+ - JEP 406: Pattern Matching for switch (Preview)

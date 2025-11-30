@@ -17,4 +17,22 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source> <!-- 或者你使用的 Java 版本 -->
+                    <target>21</target> <!-- 与 source 保持一致 -->
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                        <arg>--source</arg>
+                        <arg>21</arg> <!-- 指定源代码版本 -->
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
