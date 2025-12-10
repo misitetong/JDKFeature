@@ -201,3 +201,150 @@ int eval(Expr e) {
 ```
 🔒 完整性检查（Completeness Check）：
 编译器能静态验证 switch 是否覆盖了所有许可子类，避免运行时遗漏。
+
+## [移除试验性的AOT和JIT编译器（JEP410）](https://openjdk.org/jeps/410)
+
+### 背景
+Java Ahead-of-time compilation (jaotc)工具是通过[JEP295](https://openjdk.org/jeps/295) 在 JDK 9 中作为实验性功能引入的。
+jaotc 工具使用 Graal 编译器进行 AOT 编译，而 Graal 编译器本身是用 Java 编写的。
+Graal 编译器在 JDK 10 中通过[JEP317](https://openjdk.org/jeps/317) 作为实验性的 JIT 编译器提供。
+
+这些功能都可以由`GraalVM`替代
+
+### 移除的内容
+ - 移除的模块：
+   ```text
+   1. jdk.aot — the jaotc tool
+   2. jdk.internal.vm.compiler — the Graal compiler
+   3. jdk.internal.vm.compiler.management — Graal's MBean
+   ```
+ - 移除的代码
+   ```text
+   1. src/hotspot/share/aot — dumps and loads AOT code
+   2. Additional code guarded by #if INCLUDE_AOT
+   ```
+ - 保留下面的内容，以确保`JVMCI`(jdk.internal.vm.ci,[JEP243](https://openjdk.org/jeps/243))模块能够继续正常构建
+   ```text
+   1. src/jdk.internal.vm.compiler/share/classes/module-info.java
+   2. src/jdk.internal.vm.compiler.management/share/classes/module-info.java
+   ```
+   
+## [废弃安全管理器SecurityManager以便后续移除（JEP411）](https://openjdk.org/jeps/411)
+
+### 为什么要弃用
+1. 时代变化 + 用法减少
+
+   Security Manager + Java Policy 是过去 Java 平台用来做安全控制（sandboxing, 权限限制）的机制。
+   随着现代应用使用容器化（Docker / Kubernetes）、模块化、安全沙箱机制、运维与部署方式的改变，以及其他语言／平台安全控制方案的丰富，许多开发者／系统已经不依赖 Java-level 的 Security Manager。
+   实际上，在很多项目中，Security Manager 并不被启用或配置。使用频率很低。
+
+2. 安全机制局限性与复杂性
+
+   Security Manager 的配置和管理不够灵活，有时难以正确配置，或者对现代模块系统（JPMS）、反射、动态代理等功能支持不完善。
+保持其兼容性和维护成本高：随着 JDK 演进，引入新特性，继续维护一个复杂且使用率低的安全子系统变得负担。
+
+3. 更现代、更强、安全性更好的替代方案
+
+   在现实部署中，更常用的是操作系统层面的安全隔离（容器、虚拟机、操作系统权限）、硬件隔离、沙箱／权限分离、模块化权限模型等。
+对于需要更强隔离控制的场景，可采用专门的安全框架或运行时沙箱技术，而不依赖 Security Manager。
+因此，继续维护一个过时、不灵活、安全性／兼容性有局限、使用率低的机制意义不大。
+
+### 弃用内容
+
+```text
+1. java.lang.SecurityManager
+2. java.lang.System::{setSecurityManager, getSecurityManager}
+3. java.security.{Policy, PolicySpi, Policy.Parameters}
+4. java.security.{AccessController, AccessControlContext, AccessControlException, DomainCombiner}
+5. java.lang.Thread::checkAccess, java.lang.ThreadGroup::checkAccess, and java.util.logging.LogManager::checkAccess
+6. java.util.concurrent.Executors::{privilegedCallable, privilegedCallableUsingCurrentClassLoader, privilegedThreadFactory}
+7. java.rmi.RMISecurityManager
+8. javax.security.auth.SubjectDomainCombiner and javax.security.auth.Subject::{doAsPrivileged, getSubject}
+```
+
+## [外部函数和管理内存的API（孵化器）（JEP412）](https://openjdk.org/jeps/412)
+
+### 相关的JEP变更
+1. [JEP 424](https://openjdk.org/jeps/424): Foreign Function & Memory API (Preview)
+2. [JEP 389](https://openjdk.org/jeps/389): Foreign Linker API (Incubator)
+3. [JEP 393](https://openjdk.org/jeps/393): Foreign-Memory Access API (Third Incubator)
+4. [JEP 419](https://openjdk.org/jeps/419): Foreign Function & Memory API (Second Incubator)
+
+### 代码示例
+
+执行[JEP412.java](src/main/java/com/misitetong/jdk17/JEP412.java)需要带上`VM OPTIONS`
+```shell
+--add-modules=jdk.incubator.foreign
+--enable-native-access=ALL-UNNAMED
+```
+
+```java
+// 获取链接库中的strlen函数
+MemoryAddress strlen = CLinker.systemLookup().lookup("strlen").get();
+// 获取方法的handle
+MethodHandle strlenHandle = CLinker.getInstance().downcallHandle(
+       strlen,
+       MethodType.methodType(int.class, MemoryAddress.class),
+       FunctionDescriptor.of(C_INT, C_POINTER)
+);
+// 获取字符串
+var string = CLinker.toCString("Hello World!!", ResourceScope.newImplicitScope());
+// 调用C中的strlen函数
+System.out.println(strlenHandle.invoke(string.address()));
+```
+
+## [向量API（第二次孵化）（JEP414）](https://openjdk.org/jeps/414)
+
+### 相关的JEP变更
+1. [JEP 338](https://openjdk.org/jeps/338): Vector API (Incubator)
+2. [JEP 417](https://openjdk.org/jeps/417): Vector API (Third Incubator)
+
+### 背景
+
+向量API旨在提供一种清晰、可移植的方式，让 Java 开发者能编写高性能的向量化计算代码（如数值计算、机器学习、图像处理等）。
+1. 在运行时自动利用 CPU 的 SIMD 指令（如 Intel AVX、ARM NEON），而无需手写 JNI 或汇编。
+   ```asm
+      vaddps ymm0, ymm1, ymm2  ; AVX 指令，一次加 8 个 float
+   ```
+2. 与 HotSpot JIT 编译器深度集成，在运行时将 Vector API 调用编译为高效的向量指令。
+3. 保持 Java 的安全性和平台无关性，即使底层硬件不支持 SIMD，也能回退到标量实现（性能降级但功能正确）。
+
+### 使用
+
+1. 是否支持向量化优化
+   ```shell
+   # 期待输出true
+   java -XX:+PrintFlagsFinal -version | grep UseSuperWord
+   ```
+2. 使用`Benchmark`测试优化效率详见[JEP414.java](src/main/java/com/misitetong/jdk17/JEP414.java)
+   ```java
+   // 普通循环版本
+    @Benchmark
+    public void scalarAdd(Blackhole bh) {
+        double[] c = new double[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            c[i] = a[i] * a[i] + b[i] * b[i];
+        }
+        bh.consume(c); // 防止 JIT 优化掉整个计算（死码消除）
+    }
+
+    // Vector API 版本
+    @Benchmark
+    public void vectorAdd(Blackhole bh) {
+        final var SPECIES = DoubleVector.SPECIES_PREFERRED;
+        // JDK 21+ 请用: java.util.vector.FloatVector.SPECIES_PREFERRED
+        double[] c = new double[SIZE];
+        int i = 0;
+        for (; i < SPECIES.loopBound(SIZE); i += SPECIES.length()) {
+            var va = DoubleVector.fromArray(SPECIES, a, i);
+            var vb = DoubleVector.fromArray(SPECIES, b, i);
+            var vc = va.mul(va).add(vb.mul(vb));
+            vc.intoArray(c, i);
+        }
+        bh.consume(c);
+    }
+   ```
+3. 启动`Benchmark`
+   1. 启动类：org.openjdk.jmh.Main
+   2. 启动参数`VM OPTIONS` ：
+   `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`

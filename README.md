@@ -35,3 +35,7 @@ Code repository for jdk feature explanation
  - JEP 406: Pattern Matching for switch (Preview)
  - JEP 407: Remove RMI Activation
  - JEP 409: Sealed Classes
+ - JEP 410: Remove the Experimental AOT and JIT Compiler
+ - JEP 411: Deprecate the Security Manager for Removal
+ - JEP 412: Foreign Function & Memory API (Incubator)
+ - JEP 414: Vector API (Second Incubator)
