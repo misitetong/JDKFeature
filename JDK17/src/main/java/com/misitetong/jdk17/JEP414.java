@@ -1,7 +1,6 @@
 package com.misitetong.jdk17;
 
 import jdk.incubator.vector.DoubleVector;
-import jdk.incubator.vector.FloatVector;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 

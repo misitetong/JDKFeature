@@ -348,3 +348,42 @@ System.out.println(strlenHandle.invoke(string.address()));
    1. 启动类：org.openjdk.jmh.Main
    2. 启动参数`VM OPTIONS` ：
    `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`
+
+## [上下文确定的反系列化过滤器（JEP415）](https://openjdk.org/jeps/415)
+
+### 相关的JEP变更
+1. [JEP 290](https://openjdk.org/jeps/290): Filter Incoming Serialization Data
+### 背景
+
+Java 的对象反序列化（`ObjectInputStream.readObject()`）长期以来是严重安全风险的来源：
+ - 攻击者可以构造恶意序列化数据
+ - 利用“gadget chain”触发任意代码执行（RCE）
+ - 很多知名漏洞（WebLogic、JBoss、Spring、Jackson 早期问题）都源于此
+
+因此问题不在“能反序列化”，而在“反序列化了什么对象”。
+在JEP415之前，Java9引入了JEP290实现了全局过滤器，代码如下所示：
+```java
+String pattern = "java.base/*;java.util.ArrayList;!*";
+ObjectInputFilter filter = ObjectInputFilter.Config.createFilter(pattern);
+ObjectInputFilter.Config.setSerialFilter(filter);
+```
+但是这种过滤方式很难区分不同使用场景，也无法自定义过滤规则，因此提出了与上下文绑定的反序列化过滤器。
+这种过滤器允许应用程序通过JVM范围的过滤器工厂配置特定于上下文和动态选择的反序列化过滤器，该工厂被调用以为每个单独的反序列化操作选择一个过滤器。
+
+详细代码见[JEP415.java](src/main/java/com/misitetong/jdk17/JEP415.java)
+```java
+String pattern = "java.base/*;java.util.ArrayList;!*";
+ObjectInputFilter filter = ObjectInputFilter.Config.createFilter(pattern);
+try (ByteArrayInputStream bis = new ByteArrayInputStream(data);
+    ObjectInputStream ois = new ObjectInputStream(bis)) {
+   // 为当前流设置上下文过滤器
+   ois.setObjectInputFilter(filter);
+   return ois.readObject();
+}
+```
+
+
+
+
+
+
